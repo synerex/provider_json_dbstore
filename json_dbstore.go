@@ -147,27 +147,41 @@ func init() {
 		log.Fatal("\n")
 	}
 
-	_, err = db.Exec(ctx, `SELECT create_hypertable('lh', 'time', migrate_data => true, if_not_exists => true)`)
+	_, err = db.Exec(ctx, `SELECT create_hypertable('lh', 'time', migrate_data => true, if_not_exists => true, chunk_time_interval => INTERVAL '15 mins')`)
 	if err != nil {
 		print("create_hypertable error: ")
 		log.Println(err)
 		log.Fatal("\n")
 	}
 
-	// create fast tablespace
-	_, err = db.Exec(ctx, "CREATE TABLESPACE fast_space LOCATION '/fast_store'")
+	_, err = db.Exec(ctx, `SELECT attach_tablespace('fast_space', 'lh', if_not_attached => true)`)
 	if err != nil {
-		print("create fast_space tablespace error: ")
+		print("attach_tablespace error: ")
 		log.Println(err)
-		// log.Fatal("\n")
+		log.Fatal("\n")
 	}
 
-	// create slow tablespace
-	_, err = db.Exec(ctx, "CREATE TABLESPACE slow_space LOCATION '/slow_store'")
+	_, err = db.Exec(ctx, `CLUSTER lh USING lh_time_idx`)
 	if err != nil {
-		print("create slow_space tablespace error: ")
+		print("CLUSTER error: ")
 		log.Println(err)
-		// log.Fatal("\n")
+		log.Fatal("\n")
+	}
+
+	var count int
+	if err := db.QueryRow(ctx, `select count(*) from timescaledb_information.jobs where proc_name like 'move_old_chunks' and config?'hypertable' and config->>'hypertable' like 'lh'`).Scan(&count); err != nil {
+		print("select count(*) from timescaledb_information.jobs query error: ")
+		log.Println(err)
+		print("\n")
+	} else {
+		if count == 0 {
+			_, err = db.Exec(ctx, `SELECT add_job('move_old_chunks', '5m', config => '{"hypertable":"lh","lag":"1 hour","tablespace":"slow_space"}')`)
+			if err != nil {
+				print("SELECT add_job: ")
+				log.Println(err)
+				log.Fatal("\n")
+			}
+		}
 	}
 }
 
