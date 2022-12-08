@@ -138,13 +138,36 @@ func init() {
 	}
 
 	// create table (Location History)
-	_, err = db.Exec(ctx, `create table if not exists lh(id BIGSERIAL NOT NULL, sid INT not null, time TIMESTAMP not null, lat DOUBLE PRECISION NOT NULL DEFAULT 0, lon DOUBLE PRECISION NOT NULL DEFAULT 0, alt DOUBLE PRECISION NOT NULL DEFAULT 0, spd DOUBLE PRECISION NOT NULL DEFAULT 0, acc DOUBLE PRECISION NOT NULL DEFAULT 0, dir_s DOUBLE PRECISION NOT NULL DEFAULT 0, dir_a DOUBLE PRECISION NOT NULL DEFAULT 0, rssi DOUBLE PRECISION NOT NULL DEFAULT 0, opt VARCHAR(4096) NOT NULL DEFAULT '', primary key(id))`)
+	_, err = db.Exec(ctx, `create table if not exists lh(sid INT not null, time TIMESTAMP not null, lat DOUBLE PRECISION NOT NULL DEFAULT 0, lon DOUBLE PRECISION NOT NULL DEFAULT 0, alt DOUBLE PRECISION NOT NULL DEFAULT 0, spd DOUBLE PRECISION NOT NULL DEFAULT 0, acc DOUBLE PRECISION NOT NULL DEFAULT 0, dir_s DOUBLE PRECISION NOT NULL DEFAULT 0, dir_a DOUBLE PRECISION NOT NULL DEFAULT 0, rssi DOUBLE PRECISION NOT NULL DEFAULT 0, opt VARCHAR(4096) NOT NULL DEFAULT '')`)
 	// select hex(mac) from log;
 	// insert into pc (mac) values (x'000CF15698AD');
 	if err != nil {
 		print("create table error: ")
 		log.Println(err)
 		log.Fatal("\n")
+	}
+
+	_, err = db.Exec(ctx, `SELECT create_hypertable('lh', 'time', migrate_data => true, if_not_exists => true)`)
+	if err != nil {
+		print("create_hypertable error: ")
+		log.Println(err)
+		log.Fatal("\n")
+	}
+
+	// create fast tablespace
+	_, err = db.Exec(ctx, "CREATE TABLESPACE fast_space LOCATION '/fast_store'")
+	if err != nil {
+		print("create fast_space tablespace error: ")
+		log.Println(err)
+		// log.Fatal("\n")
+	}
+
+	// create slow tablespace
+	_, err = db.Exec(ctx, "CREATE TABLESPACE slow_space LOCATION '/slow_store'")
+	if err != nil {
+		print("create slow_space tablespace error: ")
+		log.Println(err)
+		// log.Fatal("\n")
 	}
 }
 
